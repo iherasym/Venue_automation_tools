@@ -13,13 +13,13 @@ def main():
     hostname=input("provide server Ip: ")
     username=input("provide username: ")
     password=input("provide password: ")
-    ric = input("provide a RIC: ")
+    ric_list = input('Enter List of RICs separated by space: ').split()
     Lh_name=input("provide LH name : ")
     venue_name=input("provide venue name : ")
     config_path = "/data/Venues/"+ venue_name +"/config/"
     persist_file = "PERSIST_" + Lh_name +".DAT"
     download_Persist(hostname,username,password,config_path,persist_file)
-    check_persist(ric,persist_file)
+    check_persist(ric_list,persist_file)
 
 
 # this function is to download the PMAT file to your local machine#
@@ -33,7 +33,7 @@ def download_Persist(hostname,username,password,config_path,persist_file):
         ssh.connect(hostname=hostname,username=username,password=password,port=22)
 
         sftp_client = ssh.open_sftp()
-        print(f"file {persist_file} is downloading")
+        print(f"File {persist_file} is downloading")
         sftp_client.get(config_path + persist_file, "C:\PMAT\\x64\\" + persist_file)
         print(f"Download completed find file {persist_file} at C:\PMAT\\x64")
         sftp_client.close()
@@ -53,7 +53,7 @@ def download_Persist(hostname,username,password,config_path,persist_file):
         print("Connection Error make sure server ip provided is correct and you are connected to the LSEG VPN")
         quit()
     except ConnectionRefusedError:
-        print("connection is refused make sure password for the server is correct")
+        print("Connection is refused make sure password for the server is correct")
         quit()
     except AuthenticationException:
         print(f"The password '{password}' provided is not correct for the selected server, try again with correct password")
@@ -63,20 +63,18 @@ def download_Persist(hostname,username,password,config_path,persist_file):
         quit()
 
 
-def check_persist(ric,persist_file):
+def check_persist(ric_list,persist_file):
     try:
-        ric
-        persist_file
-        os.chdir("C:\\PMAT\\x64")
+        for r in ric_list:
+            persist_file
+            os.chdir("C:\\PMAT\\x64")
 
-        os.system(f"PMAT dump --dll schema_V9.dll --db {persist_file} --ric {ric} --MARKET_PRICE> {ric}.txt")
-        filename = f"C:\\PMAT\\x64\\{ric}.txt"
-        os.startfile(filename)
-
-        return None
+            os.system(f"PMAT dump --dll schema_V9.dll --db {persist_file} --ric {r} --MARKET_PRICE> {r}.txt")
+            filename = f"C:\\PMAT\\x64\\{r}.txt"
+            os.startfile(filename)
 
     except FileNotFoundError:
-        print(f"file not found make sure {persist_file} file to analyze is downloaded at C:\\PMAT\\x64")
+        print(f"File not found make sure {persist_file} file to analyze is downloaded at C:\\PMAT\\x64")
         quit()
     except Exception as e:
         print(e)
