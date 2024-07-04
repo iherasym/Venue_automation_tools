@@ -12,50 +12,33 @@ import re
 import os
 
 def main():
+    global output_host
     hostname = input("provide server Ip: ")
     password = input("provide password: ")
     LH_name = input("provide LH names separated by space: ").split()
-    local_path = input("provide a location where you want to save FIDFilter and DumpCache files to your local machine: ")
-    today=datetime.datetime.now().strftime("%Y%m%d")
+    local_path = input("provide a location where you want to save DumpCache files to your local machine: ")
+    today = datetime.datetime.now().strftime("%Y%m%d")
     fo4 = open(local_path + "Sample_RICs.txt", "w")
     fo4.write(f"Sample RICs for:\n\n")
     fo4.close()
+    output_host = output_host(hostname, password)
     for LH in LH_name:
-        dumpcache_file = download_dumpcache(hostname, password, LH, local_path, today)
+        dumpcache_file = download_dumpcache(hostname, password, LH, local_path, today ,output_host)
         CID = find_CID_dumpcache(local_path, dumpcache_file)
         sample_RIC_per_CID(local_path, dumpcache_file, CID, LH)
 
 
-# this function is to download the DumpCache and FidFilter files to your local machine#
-# this function is to download the DumpCache and FidFilter files to your local machine#
-def download_dumpcache(hostname, password, LH, local_path, today):
+def output_host(hostname, password):
     try:
         ssh = paramiko.SSHClient()  # create ssh client
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname=hostname, username="root", password=password, port=22)
-        print("I am connected to download DumpCache file")
-
-        stdin, stdout, stderr = ssh.exec_command(f"cd /data/che/bin ; pwd ; ./Commander -n linehandler -c 'dumpcache {LH}'")
-        time.sleep(10)
-        outp = stdout.readlines()
-        dumpcache_file = LH + "_" + today + ".csv"
-        print(dumpcache_file)
-        stdin, stdout, stderr = ssh.exec_command(f"find / -name " + dumpcache_file)
+        stdin, stdout, stderr = ssh.exec_command(f"hostname")
         time.sleep(2)
-        config_ph = stdout.read()
-        print(config_ph)
-        config_ph = config_ph.decode(encoding="utf-8")
-        config_ph = ''.join(c for c in config_ph if c.isprintable())
-        print(config_ph)
-
-        sftp_client = ssh.open_sftp()
-        print("DumpCache file is downloading")
-        sftp_client.get(config_ph, local_path + dumpcache_file)
-
-        print("Dumpcache file - download completed")
-        sftp_client.close()
-        ssh.close
-        return dumpcache_file
+        host = stdout.read()
+        host = host.decode(encoding="utf-8")
+        output_host = ''.join(c for c in host if c.isprintable())
+        return output_host
 
     except socket.gaierror:
         print("Connection Error make sure server ip provided is correct and you are connected to the LSEG VPN")
@@ -75,6 +58,45 @@ def download_dumpcache(hostname, password, LH, local_path, today):
     except AuthenticationException:
         print(
             f"The password '{password}' provided is not correct for the selected server, try again with correct password")
+        quit()
+    except Exception as e:
+        print(e)
+        quit()
+
+
+# this function is to download the DumpCache and FidFilter files to your local machine#
+# this function is to download the DumpCache and FidFilter files to your local machine#
+def download_dumpcache(hostname, password, LH, local_path, today ,output_host):
+    try:
+        ssh = paramiko.SSHClient()  # create ssh client
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(hostname=hostname, username="root", password=password, port=22)
+        print("I am connected to download DumpCache file")
+
+        stdin, stdout, stderr = ssh.exec_command \
+            (f"cd /data/che/bin ; pwd ; ./Commander -n linehandler -c 'dumpcache {LH}'")
+        time.sleep(10)
+        outp = stdout.readlines()
+        dumpcache_file = LH + "_" + today + ".csv"
+        print(dumpcache_file)
+        stdin, stdout, stderr = ssh.exec_command(f"find / -name " + dumpcache_file)
+        time.sleep(2)
+        config_ph = stdout.read()
+        print(config_ph)
+        config_ph = config_ph.decode(encoding="utf-8")
+        config_ph = ''.join(c for c in config_ph if c.isprintable())
+        print(config_ph)
+
+        sftp_client = ssh.open_sftp()
+        print("DumpCache file is downloading")
+        sftp_client.get(config_ph, local_path + output_host + "_" + dumpcache_file)
+        dumpcache_file = output_host + "_" + dumpcache_file
+        print("Dumpcache file - download completed")
+        sftp_client.close()
+        ssh.close
+        return dumpcache_file
+    except FileNotFoundError:
+        print("Host file not found make sure the server ip and local path provided are correct")
         quit()
     except Exception as e:
         print(e)
@@ -120,9 +142,10 @@ def sample_RIC_per_CID(local_path, dumpcache_file, CID, LH):
         DOMAIN = Sample_RIC["DOMAIN"].tolist()
         for K in PUBLISH_KEY:
             for D in DOMAIN:
-                fo4.write(f"{D} - {c} - {K[0]} \n")
+                fo4.write(f"{D} - {c} - {K} \n")
+                break
         os.remove(local_path + "CID_" + c + "_RIC_LIST.csv")
-        #os.remove(local_path + c + "_Sample_RIC.csv")
+        os.remove(local_path + c + "_Sample_RIC.csv")
     fo4.close()
 
 
