@@ -9,6 +9,7 @@ import time
 import datetime
 import pandas as pd
 import re
+import csv
 import os
 
 def main():
@@ -27,41 +28,16 @@ def main():
         CID = find_CID_dumpcache(local_path, dumpcache_file)
         sample_RIC_per_CID(local_path, dumpcache_file, CID, LH)
 
-
 def output_host(hostname, password):
-    try:
-        ssh = paramiko.SSHClient()  # create ssh client
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(hostname=hostname, username="root", password=password, port=22)
-        stdin, stdout, stderr = ssh.exec_command(f"hostname")
-        time.sleep(2)
-        host = stdout.read()
-        host = host.decode(encoding="utf-8")
-        output_host = ''.join(c for c in host if c.isprintable())
-        return output_host
-
-    except socket.gaierror:
-        print("Connection Error make sure server ip provided is correct and you are connected to the LSEG VPN")
-        quit()
-    except TimeoutError:
-        print("Host file not found make sure the server ip and local path provided are correct")
-        quit()
-    except FileNotFoundError:
-        print("Host file not found make sure the server ip and local path provided are correct")
-        quit()
-    except ConnectionError:
-        print("Connection Error make sure server ip provided is correct and you are connected to the LSEG VPN")
-        quit()
-    except ConnectionRefusedError:
-        print("connection is refused make sure password for the server is correct")
-        quit()
-    except AuthenticationException:
-        print(
-            f"The password '{password}' provided is not correct for the selected server, try again with correct password")
-        quit()
-    except Exception as e:
-        print(e)
-        quit()
+    ssh = paramiko.SSHClient()  # create ssh client
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostname=hostname, username="root", password=password, port=22)
+    stdin, stdout, stderr = ssh.exec_command(f"hostname")
+    time.sleep(2)
+    host = stdout.read()
+    host = host.decode(encoding="utf-8")
+    output_host = ''.join(c for c in host if c.isprintable())
+    return output_host
 
 
 # this function is to download the DumpCache and FidFilter files to your local machine#
@@ -73,8 +49,7 @@ def download_dumpcache(hostname, password, LH, local_path, today ,output_host):
         ssh.connect(hostname=hostname, username="root", password=password, port=22)
         print("I am connected to download DumpCache file")
 
-        stdin, stdout, stderr = ssh.exec_command \
-            (f"cd /data/che/bin ; pwd ; ./Commander -n linehandler -c 'dumpcache {LH}'")
+        stdin, stdout, stderr = ssh.exec_command(f"cd /data/che/bin ; pwd ; ./Commander -n linehandler -c 'dumpcache {LH}'")
         time.sleep(10)
         outp = stdout.readlines()
         dumpcache_file = LH + "_" + today + ".csv"
@@ -95,8 +70,25 @@ def download_dumpcache(hostname, password, LH, local_path, today ,output_host):
         sftp_client.close()
         ssh.close
         return dumpcache_file
+
+
+    except socket.gaierror:
+        print("Connection Error make sure server ip provided is correct and you are connected to the LSEG VPN")
+        quit()
+    except TimeoutError:
+        print("Host file not found make sure the server ip and local path provided are correct")
+        quit()
     except FileNotFoundError:
         print("Host file not found make sure the server ip and local path provided are correct")
+        quit()
+    except ConnectionError:
+        print("Connection Error make sure server ip provided is correct and you are connected to the LSEG VPN")
+        quit()
+    except ConnectionRefusedError:
+        print("connection is refused make sure password for the server is correct")
+        quit()
+    except AuthenticationException:
+        print(f"The password '{password}' provided is not correct for the selected server, try again with correct password")
         quit()
     except Exception as e:
         print(e)
@@ -104,22 +96,40 @@ def download_dumpcache(hostname, password, LH, local_path, today ,output_host):
 
 
 def find_CID_dumpcache(local_path, dumpcache_file):
-    data = pd.read_csv(local_path + dumpcache_file).dropna()
-    CID = list(set(map(int, data["CONTEXT_ID"].tolist())))
-    CID = [format(c, 'd') for c in CID]
+    file = local_path + dumpcache_file
+    def getColumn(name):
+        return [row[name] for row in data]
+
+    with open(file, newline='') as new_csv_file:
+        new_csv_file = csv.DictReader(new_csv_file)
+        data = list(new_csv_file)
+    CID_all = []
+
+    for u in getColumn('CONTEXT_ID'):
+        CID_all.append(u)
+
+    while ("" in CID_all):
+        CID_all.remove("")
+    CID = list(set((CID_all)))
     return CID
 
 
 def sample_RIC_per_CID(local_path, dumpcache_file, CID, LH):
-    fo = open(local_path + dumpcache_file, "r")
+    data = pd.read_csv(local_path + dumpcache_file)
+    columns_to_drop = ['ITEM_ID', 'LAST_UPDATED', 'LAST_ACTIVITY', 'TIME_CREATED', 'VEHICLEID']
+    data.drop(columns=columns_to_drop, inplace=True, axis=1)
+    data.to_csv(local_path + 'new_dump_file.csv', index=False)
+    new_dump_file = 'new_dump_file.csv'
+    fo = open(local_path + new_dump_file, "r")
     content = fo.readlines()
     fo4 = open(local_path + "Sample_RICs.txt", "a")
     fo4.write(f"*** {LH} ***\n")
     for c in CID:
         fo1 = open(local_path + "CID_" + c + "_RIC_LIST.csv", "w")
         fo1.write(list(content)[0])
+        patt1 = r"\b" + c + "\\b"
         for line in content:
-            if c in line:
+            if re.findall(patt1, line):
                 fo1.writelines(line)
         fo1.close()
         data = pd.read_csv(local_path + "CID_" + c + "_RIC_LIST.csv")
@@ -131,9 +141,9 @@ def sample_RIC_per_CID(local_path, dumpcache_file, CID, LH):
         content_highest = fo2.readlines()
         fo3 = open(local_path + c + "_Sample_RIC.csv", "w", newline="")
         fo3.write(list(content)[0])
-        patt = r"\b" + highest + "\\b"
+        patt2 = r"\b" + highest + "\\b"
         for l in content_highest:
-            if re.findall(patt, l):
+            if re.findall(patt2, l):
                 fo3.writelines(l, )
         fo2.close()
         fo3.close()
@@ -144,9 +154,12 @@ def sample_RIC_per_CID(local_path, dumpcache_file, CID, LH):
             for D in DOMAIN:
                 fo4.write(f"{D} - {c} - {K} \n")
                 break
+            break
         os.remove(local_path + "CID_" + c + "_RIC_LIST.csv")
         os.remove(local_path + c + "_Sample_RIC.csv")
+        #os.remove(local_path + new_dump_file)
     fo4.close()
 
 
 main()
+
