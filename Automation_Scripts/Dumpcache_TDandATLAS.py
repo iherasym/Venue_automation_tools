@@ -55,7 +55,6 @@ def download_dumpcache(hostname, password, LH, local_path, today ,output_host):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname=hostname, username="root", password=password, port=22)
         print("I am connected to download DumpCache file")
-
         stdin, stdout, stderr = ssh.exec_command(f"cd /data/che/bin ; pwd ; ./Commander -n linehandler -c 'dumpcache {LH}'")
         time.sleep(10)
         outp = stdout.readlines()
@@ -64,11 +63,8 @@ def download_dumpcache(hostname, password, LH, local_path, today ,output_host):
         stdin, stdout, stderr = ssh.exec_command(f"find / -name " + dumpcache_file)
         time.sleep(2)
         config_ph = stdout.read()
-        print(config_ph)
         config_ph = config_ph.decode(encoding="utf-8")
         config_ph = ''.join(c for c in config_ph if c.isprintable())
-        print(config_ph)
-
         sftp_client = ssh.open_sftp()
         print("DumpCache file is downloading")
         sftp_client.get(config_ph, local_path + output_host + "_" + dumpcache_file)
@@ -107,19 +103,14 @@ def download_dumpcache_atlas(hostname, password, LH, local_path, today, output_h
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname=hostname, username="root", password=password, port=22)
         print("I am connected to download DumpCache file")
-
         stdin, stdout, stderr = ssh.exec_command(f"cd .. ; cd tmp ; commander.sh {LH} cache dump > {LH}_{today}.csv")
         time.sleep(10)
         outp = stdout.readlines()
-        print(outp)
         dumpcache_file = LH + "_" + today + ".csv"
         print(dumpcache_file)
-
         sftp_client = ssh.open_sftp()
         print("DumpCache file is downloading")
         path = "/tmp/" + dumpcache_file
-        print(path)
-
         sftp_client.get(path, local_path + output_host + "_" + dumpcache_file)
         dumpcache_file = output_host + "_" + dumpcache_file
         print("Dumpcache file - download completed")
@@ -173,7 +164,7 @@ def sample_RIC_per_CID(type, local_path, dumpcache_file, CID, LH):
     if type == "TD":
         columns_to_drop = ['ITEM_ID', 'LAST_UPDATED', 'LAST_ACTIVITY', 'TIME_CREATED', 'VEHICLEID']
     elif type == "Atlas":
-        columns_to_drop = ['VEHICLE_ID', 'LAST_UPDATED', 'LAST_ACTIVITY', 'TIME_CREATED', 'ISSUETYPE']
+        columns_to_drop = ['VEHICLE_ID', 'LAST_UPDATED', 'LAST_ACTIVITY', 'TIME_CREATED', 'ISSUTYPE']
     data.drop(columns=columns_to_drop, inplace=True, axis=1)
     data.to_csv(local_path + 'new_dump_file.csv', index=False)
     new_dump_file = 'new_dump_file.csv'
