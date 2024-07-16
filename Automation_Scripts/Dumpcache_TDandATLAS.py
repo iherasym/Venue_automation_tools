@@ -21,7 +21,7 @@ def main():
     LH_name = input("provide LH names separated by space: ").split()
     global output_host
     output_host = output_host(hostname, password)
-    local_path = input(f"provide  location on your local machine to save dumpCache files: ") + output_host + "\\"
+    local_path = input(f"provide  location on your local machine to save dumpcache files: ") + output_host + "\\"
     os.makedirs(local_path,exist_ok=True)
     today = datetime.datetime.now().strftime("%Y%m%d")
     foSample_RICs = open(local_path + "Sample_RICs.txt", "w")
@@ -37,7 +37,7 @@ def main():
             CID = find_CID_dumpcache(local_path, dumpcache_file, LH)
             sample_RIC(type, local_path, dumpcache_file, CID, LH)
     os.remove(local_path + "temp_dump_file.csv")
-    print(f"Now all files are on your local machine in: {local_path}\nThank you. Bye :)")
+    print(f"---------------------------------------------------\nNow all files are on your local machine in: \n{local_path}\nThank you. Bye :)")
 
 
 # this function gets server's hostname
